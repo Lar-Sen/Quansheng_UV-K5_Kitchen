@@ -16,6 +16,37 @@
 ## ROM patches list
 <hr>
 
+### `mod-combo_ramreader_zvei.py`
+
+This is a combo mod, as 1st mod makes room for the 2nd.
+
+1. Original RAM reader, ported to v2.00.31 firmware. Please refer to utils/readme for usage details.
+
+2. ZVEI signalling function, to replace 2nd method for 1750Hz burst tone (long press F1 side key)
+
+My contribution: This is a replacement function for 'Press-long F1', patched to TX a ZVEI-style burst of tones.
+
+It is not 5-tone length limiting: you are free to set any sequence up to 32 tones. Tone 0 is blank pause. Melody artists welcome!
+
+Customization:
+```python
+repeat = <number of times to repeat sequence>
+tonedur = <time in ms to play each tone>
+tonedelay = <time in ms for silence between tones>
+seqdelay = <time in ms before looping to next sequence>
+pattern = <custom tone pattern in byte array format>
+```
+
+The tone pattern is a sequence of 10*kHz, minus 68.
+Example: Byte 0x30 is 48. 48+68=116. This is 1160Hz tone.
+Default is ZVEI-2 Emergency sequence for Channel E in European alps: Swiss - Italy - France. Useful for hiking and rescue activities.
+
+All three 'repeat' , 'tonedur' , 'tonedelay' values can take 255 max.
+
+'seqdelay' takes only any of: 512, 256, 0. Zero is 128ms.
+To get NO delay, please un/comment seqdelay related lines in the 'do not modify' section.
+<hr>
+
 ### `mod_2to1_compressor.py`
 My contribution: Activates only compressor part of the integrated compander, to get better modulation dynamics.
 
@@ -111,6 +142,14 @@ The purpose of  this mod is to unlock receiving range of the transceiver. Defaul
 
 ### `mod_custom_mdc_data.py`
 My contribution: Aims to produce a better MDC signalling when MDC1200 roger beep is chosen. String is an EOT for PTT-ID 0001.
+
+Not really working. No differential coding, just plain AFSK.
+
+Due to Beken chip limitations, bit coding doesn't conform to MDC spec, so as frame format.
+
+More investigation about register values is needed to get a hint about proper MDC1200 support, claimed by Beken themselves.
+
+Fee free to check more advanced MDC1200 work done by @OneOfEleven on custom firmware.
 <hr>
 
 ### `mod_custom_noaa_freqs.py`

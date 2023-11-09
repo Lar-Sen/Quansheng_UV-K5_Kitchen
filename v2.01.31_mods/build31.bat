@@ -2,7 +2,7 @@
 @mkdir temp 2>NUL
 @del /F temp\fw.dec.bin temp\fw.ver.bin 2>NUL
 
-@echo Extracting firmware...
+@echo Extracting firmare...
 c:\python\python.exe qsfirm.py unpack k5_v2.01.31_publish.bin temp\fw.dec.bin
 
 :: mods implying firmware grow
@@ -12,7 +12,7 @@ c:\python\python.exe v31\mod_custom_bootscreen_narrow.py temp\fw.dec.bin
 REM c:\python\python.exe v31\mod_more_freq_steps_and_backlight_duration.py temp\fw.dec.bin
 
 :: start of mods
-REM c:\python\python.exe v31\mod_051f_ramreader.py temp\fw.dec.bin
+c:\python\python.exe v31\mod-combo_ramreader_zvei.py temp\fw.dec.bin
 c:\python\python.exe v31\mod_2to1_compressor.py temp\fw.dec.bin
 REM c:\python\python.exe v31\mod_battery_icon.py temp\fw.dec.bin
 c:\python\python.exe v31\mod_change_burst_tones.py temp\fw.dec.bin
@@ -53,4 +53,3 @@ c:\python\python.exe v31\mod_bugspatch.py temp\fw.dec.bin
 @echo Adding v2 header and ciphering...
 c:\python\python.exe qsfirm.py pack temp\fw.dec.bin 2.00.00 k5_v2.01.31_MODDED.bin
 
-cmd /k

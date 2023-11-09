@@ -1,6 +1,6 @@
 ## Custom welcome/boot screen with adjustable length
 ## adapted/modded by LarSeN
-## Use Img2Cpp.htm or http://en.radzio.dxp.pl/bitmap_converter/ to convert
+## Use /utils/fonts_and_graphics/Img2Cpp.htm to convert
 # img2cpp.htm settings:
 # Draw mode: Vertical
 # Inverted colors

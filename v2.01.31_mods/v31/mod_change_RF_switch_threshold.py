@@ -1,9 +1,13 @@
-#This script can be used to change the threshold frequencies for VHF/UHF switch of the RF path and output amplifier bias.
-#Factory setting is 280 MHz for both of them.
-#In my unit, changing the RF path cutoff frequency to 250 MHz produces a dramatic improvement in sensitivity and power, in the 250-280 MHz band.
+##Change threshold frequencies used to control RF filter path transition and set final RF stage driver gains.
+#"In my unit, changing the RF switch frequency to 250 MHz produces a dramatic improvement in sensitivity and power, in the 250-280 MHz band."
+#Factory PA gains are VHF{gain1=1 , gain2=0} and UHF{gain1=4 , gain2=2}
 
-# change below sets to new ones, values are in Hz
-rf_path_threshold = 250_000_000
+#Factory setting
+#rf_path_threshold = 280_000_000
+#power_amplifier_gain_threshold = 280_000_000
+
+#Custom values (in Hz)
+rf_path_threshold = 265_000_000
 power_amplifier_gain_threshold = 280_000_000
 
 ##--------------------- do not modify below this line ---------------------------------------------------
