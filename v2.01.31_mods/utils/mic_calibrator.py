@@ -1,10 +1,10 @@
+#!/usr/bin/env python3
 ##Mic gain factors editor
 #There are 5 corresponding menu levels to values @1F80 in EEPROM. Max value is 31.
 #Courtesy of LarSeN
 
 import libuvk5
-import sys,os
-import struct
+import sys,os,struct
 
 if len(sys.argv)<3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <read | write  lev0 lev1 lev2 lev3 lev4>') ; sys.exit(1)
 arg_port = sys.argv[1]

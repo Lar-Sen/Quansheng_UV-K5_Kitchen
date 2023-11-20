@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 ## Bin2Array.py
 ## Exports binary file contents to a text-formatted bytearray
 

@@ -1,10 +1,9 @@
+#!/usr/bin/env python3
 import libuvk5
-import sys
-import os
-
+import sys,os
 
 # Handle arguments
-if len(sys.argv) not in [4,]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <payload>') ; exit(1)
+if len(sys.argv) not in [4,]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <payload>') ; sys.exit(1)
 
 arg_port = sys.argv[1]
 arg_addr = int(sys.argv[2],0)

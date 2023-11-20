@@ -1,11 +1,10 @@
+#!/usr/bin/env python3
 import tkinter as tk
 from tkinter import ttk
-import sys, os
 import libuvk5
+import sys,os
 
-
-if len(sys.argv)!=3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <pooling>') ; exit(1)
-
+if len(sys.argv)!=3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <pooling>') ; sys.exit(1)
 
 class App():
     def __init__(self):

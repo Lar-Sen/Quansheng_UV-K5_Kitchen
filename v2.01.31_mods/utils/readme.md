@@ -12,6 +12,125 @@ Do not confuse with `serial` module which is incompatible with this lib.
 
 
 
+### `cmd052D_authenticate.py`
+Arguments:
+```
+cmd052D_authenticate.py  <COMx> [unlock] | [protect] <password>
+```
+Description:<br>
+This script requires `pycrypto` or similar to be installed. This utility initiates AES authentication, in order to gain R/W config access to a transceiver with an active password (not the Power-on one).
+
+It is useful to recover a locked-out situation, which sometimes happen because of EEPROM misuse. Also permits custom key updating.
+
+For example, if you only need to remove password, please set `customKey = masterKey` within the script and run `cmd052D_authenticate.py <COMx> unlock`
+```
+> cmd052D_authenticate.py COM4 unlock
+
+AES Challenge : (776607318, 96531953, 662584761, 512222488)
+
+OK, access granted!
+
+User password now reset to (NULL)
+```
+
+You can set your own key if you want, by running `cmd052D_authenticate.py <COMx> protect <your_key>` and editing `customKey` within the script.
+```
+> cmd052D_authenticate.py COM4 protect UVK5isFun
+
+AES Challenge : (640825850, 55319237, 1357743101, 1189709836
+
+OK, access granted!
+
+About to LOCK serial access to config!
+Sure to set: UVK5isFun as password to protect the device memory?
+ Confirm [Y/n]Y
+```
+
+Note: You can check the status of your device by invoking `fwversion_read.py`. It will now tell you all the missing bits.
+```
+2.01.31 Firmware
+PIN ok?  True
+Config password protected?  True
+AES Challenge : (506113336, 723914795, 1684280427, 1400539874)
+```
+<hr>
+
+
+
+
+### `cmd05DB_ramreader.py`
+Arguments:
+```
+cmd05DB_ramreader.py <COMx> <RAM address> <length> [output_file]
+```
+Description:<br>
+This script requires `mod-combo_ramreader_zvei` to be applied. This mod replaces a useless routine which is responsible for reply to command `0x051F` sent by uart. New `0x05DB` UART command can be used to read any memory area.
+
+For example, you may want to capture the entire screen framebuffer:
+```
+> cmd05DB_ramreader.py COM4 0x20000684 0x400 screen_buffer.bin
+```
+
+Note: Please refresh the transceiver screen before launch, as the buffer is internally actively used.
+
+Then you can use provided `bin2array.py` to convert RAW bytes in screen_buffer.bin to a bytearray in text-format, which in turn you can preview/save as bitmap using `fonts_and_graphics/Img2Cpp.htm`
+
+Note: If you omit a filename and redirect output to a text file, you can get a text-formatted bytearray which is ready to use with img2Cpp.htm ;)
+```
+> cmd05DB_ramreader.py COM4 0x20000684 0x400 > screencap_array.txt
+```
+
+The last parameter is optional, if omitted you'll get raw hex data of selected memory area. Useful for reading variables. Example displaying current microphone gain value:
+```
+> cmd05DB_ramreader.py COM4 0x20000ad6 0x1
+[0x18]
+```
+<hr>
+
+
+
+### `cmd060x_bkreg.py`
+Arguments:
+```
+cmd060x_bkreg.py <COMx> <read | write  regNum hexdata>
+```
+Description:<br>
+This script requires `mod_uart_cmds.py` to be applied. It creates 2 news UART commands to 'live' read or write any BK4819 register. Useful for debugging and researching hidden functions of the chip.
+
+I borrowed some inspiration from @FAGCI here.
+
+Note: `mod_uart_cmds` also makes more room to use ZVEI-style tone sequences, up to 128 bytes.
+
+For example, if you want to check currently set TONE1 frequency:
+```
+> cmd060x_bkreg.py COM4 read 113
+
+regNum: 113 [ 0x71 ]
+Actual =  0x8517
+decodes as 1000010100010111
+ReplyCode: 0
+```
+0x8517 is 34071. Conversion needs dividing it by 10.32444, so for now TONE1 is set to 3300 Hz.
+
+Remember to always specify register number as INTEGER, and register value as 16 BIT HEX.
+
+Another example, let's update sync bytes 0 and 1 for FSK modem:
+```
+> cmd060x_bkreg.py COM4 write 90 8585
+
+Reg [ 0x5a ] was =  0x709
+
+Set to =  1000010110000101
+
+regNum: 90 [ 0x5a ]
+Now reads =  0x8585
+ReplyCode: 64
+```
+
+<hr>
+
+
+
 ### `bin2array.py`
 Usage sample:
 ```
@@ -110,30 +229,6 @@ reboot_radio.py COM4
 ```
 Description:<br>
 Script just reboots device. Command not produce any output in normal situation. Usefull for example after using `configmem_write.py`
-<hr>
-
-
-
-### `util_051f_ramreader.py`
-Arguments:
-```
-util_051f_ramreader.py <COMx> <RAM address> <length> [output_file]
-```
-Description:<br>
-This script requires `mod_051f_ramreader.py` to be applied. This mod replaces a useless routine which is responsible for reply to command `0x051F` sent by uart. New function can be used to read any memory area.
-
-For example, you may want to capture the entire screen framebuffer:
-```
-> util_051f_ramreader.py COM4 0x20000684 0x400 screen_buffer.bin
-```
-
-Then you can use provided `bin2array.py` to convert RAW bytes in screen_buffer.bin to a bytearray in text-format, which in turn you can preview/save as bitmap using `fonts_and_graphics/Img2Cpp.htm`
-
-The last parameter is optional, if omitted you'll get raw hex data of selected memory area. Useful for reading variables. Example displaying current microphone gain value:
-```
-> util_051f_ramreader.py COM4 0x20000ad6 0x1
-18
-```
 <hr>
 
 

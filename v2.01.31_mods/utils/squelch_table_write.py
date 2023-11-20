@@ -1,10 +1,9 @@
+#!/usr/bin/env python3
 import libuvk5
-import sys
-import os
-
+import sys,os
 
 # Handle arguments
-if len(sys.argv) not in [2,3]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <hex_payload>') ; exit(1)
+if len(sys.argv) not in [2,3]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <hex_payload>') ; sys.exit(1)
 
 arg_port = sys.argv[1]
 
@@ -24,12 +23,10 @@ vhf_squelch_close_noise = bytearray([0x46,0x37,0x32,0x2d,0x28,0x25,0x22,0x1e,0x1
 vhf_squelch_close_glitch = bytearray([0x5a,0x19,0x0f,0x0a,0x09,0x08,0x07,0x06,0x05,0x04,0xff,0xff,0xff,0xff,0xff,0xff])
 vhf_squelch_open_glitch = bytearray([0x64,0x1e,0x14,0x0f,0x0d,0x0c,0x0b,0x0a,0x09,0x08,0xff,0xff,0xff,0xff,0xff,0xff])
 
-
-
-# Connect and read
+# Connect and write
 with libuvk5.uvk5(arg_port) as radio:
     if radio.connect():
-        _=radio.get_fw_version() #mandatory before reading mem
+        _=radio.get_fw_version()
         radio.set_cfg_mem(0x1e00,uhf_squelch_open_rssi).hex()
         radio.set_cfg_mem(0x1e10,uhf_squelch_close_rssi).hex()
         radio.set_cfg_mem(0x1e20,uhf_squelch_open_noise).hex()
@@ -42,4 +39,3 @@ with libuvk5.uvk5(arg_port) as radio:
         radio.set_cfg_mem(0x1e90,vhf_squelch_close_noise).hex()
         radio.set_cfg_mem(0x1ea0,vhf_squelch_close_glitch).hex()
         radio.set_cfg_mem(0x1eb0,vhf_squelch_open_glitch).hex()
-        

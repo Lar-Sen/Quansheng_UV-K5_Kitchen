@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 import libuvk5
-import sys,os
-import struct
+import sys,os,struct
 
 if len(sys.argv)<3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <read | write  val0 val1 val2 val3 val4 val5 | calibrate>') ; sys.exit(1)
 arg_port = sys.argv[1]
@@ -25,7 +25,7 @@ with libuvk5.uvk5(arg_port) as radio:
             print('Level {}: [{:>4}] {:.2f} V {}'.format(3, calib_data[3], calculate_voltage(calib_data[3], calib_data[3]), '// 3 battery bars if above this value, also value used to calculate adc to volt'))
             print('Level {}: [{:>4}] {:.2f} V {}'.format(4, calib_data[4], calculate_voltage(calib_data[4], calib_data[3]), '// 4 battery bars if above this value'))
             print('Level {}: [{:>4}] {:.2f} V {}'.format(5, calib_data[5], calculate_voltage(calib_data[5], calib_data[3]), '// overwritten by radio to 2300 anyway'))
-            print('\nActual = {:.2f} V'.format(calculate_voltage(radio.get_adc()[0], calib_data[3])))
+            print('\nActual = {:.2f} V'.format(calculate_voltage(radio.get_adc()["volt"], calib_data[3])))
 
         if action=='write': 
             if len(sys.argv)!=9: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> write val0 val1 val2 val3 val4 val5') ; sys.exit(1)
@@ -48,7 +48,7 @@ with libuvk5.uvk5(arg_port) as radio:
                     
                 if actual_voltage is not None:
                     break
-            adc_value = radio.get_adc()[0]
+            adc_value = radio.get_adc()["volt"]
             new_coeff = int(760*adc_value/actual_voltage/100)
             print('Current battery voltage         = {:.2f}'.format(760*adc_value/calib_data[3]/100))
             print('Current battery ADC coefficient = {}'.format(calib_data[3]))

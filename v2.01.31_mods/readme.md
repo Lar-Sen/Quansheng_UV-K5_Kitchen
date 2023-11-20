@@ -16,11 +16,23 @@
 ## ROM patches list
 <hr>
 
+### `mod_uart_cmds.py`
+
+This mod replaces factory unneeded UART command 0521 by 2 new commands, 0601 (read) and 0603 (write) to read/write arbitrary values to BK4819 radio chip registers.
+
+It works in tandem with `cmd060x_bkreg.py` script in /utils directory.
+
+Please read /utils/readme for more information.
+
+By the way, applying this mod frees some more bytes to compose your own tone sequence when using `mod-combo_ramreader_zvei.py` mod below.
+<hr>
+
+
 ### `mod-combo_ramreader_zvei.py`
 
 This is a combo mod, as 1st mod makes room for the 2nd.
 
-1. Original RAM reader, ported to v2.00.31 firmware. Please refer to utils/readme for usage details.
+1. Original RAM reader, ported to v2.00.31 firmware. Creates new 05DB UART command. Please refer to utils/readme for usage details.
 
 2. ZVEI signalling function, to replace 2nd method for 1750Hz burst tone (long press F1 side key)
 
