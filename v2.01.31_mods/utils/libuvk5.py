@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import serial
-import os,struct
+import os,time,struct
 from itertools import cycle
 
 #CRC computation
@@ -52,30 +52,34 @@ class uvk5:
         self.serial.baudrate = 38400
         self.serial.timeout=1
         self.serial.port=portName
-        self.sessTimestamp = b'\x46\x9C\x6F\x64'
+        self.timeStamp = int(time.time()).to_bytes(4,'little')
 
-        #Genuine commands
-        self.CMD_GET_FW_VER    = b'\x14\x05' #0x0514 -> 0x0515   //SendVersion() handshake
-        self.CMD_READ_FW_MEM   = b'\x17\x05' #0x0517 -> 0x0518   //Bootloader only (FW flash mode)
-        self.CMD_WRITE_FW_MEM  = b'\x19\x05' #0x0519 -> 0x051A   //Bootloader only (FW flash mode)  [needs handshake]
-        self.CMD_READ_CFG_MEM  = b'\x1B\x05' #0x051B -> 0x051C   //EEPROM_ReadBuffer [needs handshake]
-        self.CMD_WRITE_CFG_MEM = b'\x1D\x05' #0x051D -> 0x051E   //EEPROM_WriteBuffer [needs handshake]
+        ##Genuine commands
+        #Bootloader only (ROM flash mode)
+        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0517/8 //Allows sending a 400 bytes payload to RAM and exec it. Bricked my device while testing it: Dangerous!
+        self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x051A   //ROM block WRITE. Dangerous! [needs platform check]
+        self.CMD_FLASH_ON      = b'\x30\x05' #0x0530 -> 0x518:ok //Platform check ('02' or '*') then enter flash ROM write mode
+
+        #Normal boot
+        self.CMD_CONNECT       = b'\x14\x05' #0x0514 -> 0x0515   //SendVersion() handshake
+        self.CMD_EEPB_GET      = b'\x1B\x05' #0x051B -> 0x051C   //EEPROM_ReadBuffer [needs handshake]
+        self.CMD_EEPB_PUT      = b'\x1D\x05' #0x051D -> 0x051E   //EEPROM_WriteBuffer [needs handshake]
         ##self.CMD_051F          = b'\x1F\x05' #0x51F seems sanity check: killed
         ##self.CMD_0521          = b'\x21\x05' #0x521 seems sanity check: killed
-        self.CMD_0527          = b'\x27\x05' #0x0527 -> 0x0528   //RSSI Query
-        self.CMD_0529          = b'\x29\x05' #0x0529 -> 0x052A   //Batt voltage query
+        self.CMD_RSSI_GET      = b'\x27\x05' #0x0527 -> 0x0528   //RSSI Query
+        self.CMD_ADC_GET       = b'\x29\x05' #0x0529 -> 0x052A   //Batt voltage query
         self.CMD_MNG_LOGIN     = b'\x2D\x05' #0x052D -> 0x052E   //AES challenge auth routine
-        self.CMD_052F          = b'\x2F\x05' #0x052F -> 0x0515   //SendVersion() handshake for factory test
-        self.CMD_0530          = b'\x30\x05' #0x0530 -> no reply //Bootloader only (FW flash mode)
-        self.CMD_REBOOT        = b'\xDD\x05' #0x05DD -> no reply //NVIC_SystemReset()
-        self.CMD_6902          = b'\x02\x69'
+        self.CMD_CONN_TEST     = b'\x2F\x05' #0x052F -> 0x0515   //SendVersion() handshake for factory test
+
+        self.CMD_RESET         = b'\xDD\x05' #0x05DD -> no reply //NVIC_SystemReset()
+        self.CMD_6902          = b'\x02\x69' #0x6902 -> no reply //May force payload obfuscation?
 
         #For RAM Reader MOD
-        self.CMD_05DB         = b'\xDB\x05' #0x05DD -> no reply //Raw serial dump whatever memory area
+        self.CMD_MEMB_GET      = b'\xDB\x05' #0x05DD -> no reply //Raw serial dump whatever memory area
 
         #For Read/Write BK4819 register MOD
-        self.CMD_0601         = b'\x01\x06' #0x0601 -> 0x0602	//Reg value query
-        self.CMD_0603         = b'\x03\x06' #0x0603 -> 0x0604	//Reg value write, replies new value
+        self.CMD_BKREG_GET     = b'\x01\x06' #0x0601 -> 0x0602	//Reg value query
+        self.CMD_BKREG_PUT     = b'\x03\x06' #0x0603 -> 0x0604	//Reg value write, replies new value
 
     def __del__(self):
         self.serial.close()
@@ -106,7 +110,7 @@ class uvk5:
         return cmd
 
     def get_fw_version(self):
-        cmd=self.build_uart_command(self.CMD_GET_FW_VER, self.sessTimestamp)
+        cmd=self.build_uart_command(self.CMD_CONNECT, self.timeStamp)
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(128)
         version = reply[8:24]
@@ -115,69 +119,48 @@ class uvk5:
         return {'ver': version, 'prot': upwd, 'pin': pop, 'nonce': chlg}
 
     def get_cfg_mem(self,address,length):
-        cmd=self.build_uart_command(self.CMD_READ_CFG_MEM, struct.pack('<HH',address,length) + self.sessTimestamp)
+        cmd=self.build_uart_command(self.CMD_EEPB_GET, struct.pack('<HH',address,length) + self.timeStamp)
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(length+16)
         return reply[12:-4]
         
     def set_cfg_mem(self,address,payload):
         if len(payload)%8==0:
-            cmd = self.build_uart_command(self.CMD_WRITE_CFG_MEM, struct.pack('<HH',address, len(payload)) + self.sessTimestamp + payload)
+            cmd = self.build_uart_command(self.CMD_EEPB_PUT, struct.pack('<HH',address, len(payload)) + self.timeStamp + payload)
             self.uart_send_msg(cmd)
             reply = self.uart_receive_msg(14)
-            return reply[12:-4]
+            return reply[8:10]
         else:
             raise Exception('Payload have to be multiples of 8 bytes')
 
+    def block_flash(self,payload):
+        cmd=self.build_uart_command(self.CMD_ROMB_PUT, payload)
+        self.uart_send_msg(cmd)
+        return b'\x01'
+
+    def rom_flash_set(self,req_ver):
+        cmd = bytes(req_ver,'ascii') + b'\x00'*(16-len(req_ver))
+        cmd = self.build_uart_command(self.CMD_FLASH_ON, cmd + self.timeStamp)
+        self.uart_send_msg(cmd)
+        raw = self.serial.read(48)
+        print('<raw<',raw.hex())
+        reply = raw[4:6] + payload_xor(raw[8:-4]) + raw[-2:]
+        print('<dec<',reply.hex())
+        return {'ret': reply[2:4], 'pfm': reply[11:16], 'boot': reply[22:29]}
+
     def reboot(self):
-        cmd = self.build_uart_command(self.REBOOT)
+        cmd = self.build_uart_command(self.CMD_RESET)
         self.uart_send_msg(cmd)
         return True
 
-    def get_fw_mem(self,address,length):
-        cmd=self.CMD_READ_FW_MEM #+ b'\x00\x00' # struct.pack('<HH',address,length)
-        cmd= b'\x00\x05' #+ b'\x00\x00' # struct.pack('<HH',address,length)
-        cmd_crc =  b'' #CrcXmodem_le(cmd)
-        cmd=b'\xAB\xCD' + struct.pack('<H',len(cmd)) + cmd + cmd_crc + b'\xDC\xBA'
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(1024)
-        return reply[12:-4]
-
-    def set_fw_mem(self,block,payload):
-        bytes_to_write = length(payload)
-        payload=payload + b'\x00'*(1000 - bytes_to_write)
-        cmd=self.build_uart_command(self.CMD_WRITE_FW_MEM, struct.pack('<IIII',block,bytes_to_write,0xE6,0) + self.sessTimestamp + payload)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(128)
-        return reply[12:-4]
-        
-    def cmd0530(self,text):
-        buff = bytes(text,'ascii') + b'\x00'*(16-len(text))
-        cmd = self.build_uart_command(self.CMD_0530, buff)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(128)
-        return reply[12:-4]
-        
-    #def unk_fn_051F(self):
-    #    test =  struct.pack('<I',433000000) +        \
-    #            struct.pack('<H',0x00) +           \
-    #            struct.pack('<H',0x7F) +           \
-    #            struct.pack('<H',0xFF) +           \
-    #            struct.pack('<H',0x00) +           \
-    #            struct.pack('<H',0x7F) +           \
-    #            struct.pack('<H',0xFF) +           \
-    #            struct.pack('<H',1)                   
-    #            
-    #    cmd = self.build_uart_command(self.CMD_051F, test)
-    #    self.uart_send_msg(cmd)
-    #    reply = self.uart_receive_msg(128)
-    #    return reply[12:-4]
-
     def get_fw_ver_mute(self):
-        cmd=self.build_uart_command(self.CMD_052F, self.sessTimestamp)
+        cmd=self.build_uart_command(self.CMD_CONN_TEST, self.timeStamp)
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(128)
-        return reply[8:].split(b'\0', 1)[0].decode()
+        version = reply[8:24]
+        upwd,pop = struct.unpack('<BB',reply[24:26])
+        chlg = struct.unpack('<IIII',reply[28:44])
+        return {'ver': version, 'prot': upwd, 'pin': pop, 'nonce': chlg}
 
     def try_login(self,resp):
         cmd = self.build_uart_command(self.CMD_MNG_LOGIN, resp)
@@ -186,14 +169,14 @@ class uvk5:
         return reply[8:9]
         
     def get_rssi(self):
-        cmd = self.build_uart_command(self.CMD_0527)
+        cmd = self.build_uart_command(self.CMD_RSSI_GET)
         reply = self.uart_receive_msg(16)
         rssi,noise,glitch = struct.unpack('<HBB',reply[8:-4])
         rssi = rssi / 2 - 160
         return {'rssi':rssi, 'noise':noise, 'glitch':glitch, 'raw':reply[8:-4].hex()}
 
     def get_adc(self):
-        cmd = self.build_uart_command(self.CMD_0529)
+        cmd = self.build_uart_command(self.CMD_ADC_GET)
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(16)
         a,b = struct.unpack('<HH',reply[8:-4])
@@ -201,22 +184,45 @@ class uvk5:
 
 #Memory reader MOD
     def read_mem(self,address,length):
-        cmd = self.build_uart_command(self.CMD_05DB, struct.pack('<HIII', 1, address, length, 0))
+        cmd = self.build_uart_command(self.CMD_MEMB_GET, struct.pack('<HIII', 1, address, length, 0))
         self.uart_send_msg(cmd)
         reply = self.serial.read(length)
         return reply
 
 #Read/Write BK4819 register MOD
     def get_reg(self, num):
-        cmd = self.build_uart_command(self.CMD_0601, struct.pack('<H', num))
+        cmd = self.build_uart_command(self.CMD_BKREG_GET, struct.pack('<H', num))
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(16)
         dat,a,b = struct.unpack('<HBB',reply[8:-4])
         return {'reg': a, 'val': dat, 'sta': b}
 
     def put_reg(self, num, val):
-        cmd = self.build_uart_command(self.CMD_0603, struct.pack('<HH', num, val))
+        cmd = self.build_uart_command(self.CMD_BKREG_PUT, struct.pack('<HH', num, val))
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(16)
         dat,a,b = struct.unpack('<HBB',reply[8:-4])
         return {'reg': a, 'val': dat, 'sta': b}
+
+##Experiments only
+    def cmd051F(self):                                     ##NOT IMPLEMENTED
+        test =  struct.pack('<I',433000000) +      \
+                struct.pack('<H',0x00) +           \
+                struct.pack('<H',0x7F) +           \
+                struct.pack('<H',0xFF) +           \
+                struct.pack('<H',0x00) +           \
+                struct.pack('<H',0x7F) +           \
+                struct.pack('<H',0xFF) +           \
+                struct.pack('<H',1)                   
+                
+        cmd = self.build_uart_command(self.CMD_051F, test)
+        #self.uart_send_msg(cmd)
+        #reply = self.uart_receive_msg(128)
+        return False
+
+    def cmd0516(self,code):                                ##NOT IMPLEMENTED
+        cmd=self.build_uart_command(self.CMD_0516, code)
+        #self.uart_send_msg(cmd)
+        #reply = self.uart_receive_msg(1024)
+        #return reply
+        return False
