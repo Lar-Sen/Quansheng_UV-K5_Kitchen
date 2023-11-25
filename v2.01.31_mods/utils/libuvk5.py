@@ -56,8 +56,8 @@ class uvk5:
 
         ##Genuine commands
         #Bootloader only (ROM flash mode)
-        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0517/8 //Allows sending a 104 bytes payload to unknown memory offset without any check. Bricked my device while testing it: Dangerous!
-        self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x051A   //ROM block WRITE. Dangerous! [needs platform check]
+        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0518/7 //Allows sending a 104 bytes payload to unknown memory offset without any check. Bricked my device while testing it: Dangerous!
+        self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x0518/A //ROM block WRITE. Dangerous! [needs platform check]
         self.CMD_FLASH_ON      = b'\x30\x05' #0x0530 -> 0x518:ok //Platform check ('02' or '*') then enter flash ROM write mode [needs handshake]
 
         #Normal boot

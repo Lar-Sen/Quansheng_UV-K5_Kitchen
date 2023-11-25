@@ -54,16 +54,17 @@ with libuvk5.uvk5(arg_port) as radio:
                             print(f'\nWriting {i:04X}...')
                             delta = i + 256
                             if delta > len(fw):
+                                wlen = 256 - (delta % len(fw))
                                 delta = i + i % len(fw)
                                 bin256 = fw[i:delta] + b'\xFF'*(256-len(fw[i:delta]))
-                            else: bin256 = fw[i:delta]
+                            else: bin256 = fw[i:delta] ; wlen = 256
 
                             ## payload: (0x1905 + 0x0C01) + {0x8A8D9F1D + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + [256 data bytes]}
-                            payload = b'\x8A\x8D\x9F\x1D' + struct.pack('>HH',i,end) + b'\x01\x00\x00\x00' + bin256
+                            payload = b'\x8A\x8D\x9F\x1D' + struct.pack('>HH',i,end) + int.to_bytes(wlen,2,'big') + b'\x00\x00' + bin256
                             reply = radio.block_flash(payload)
                             print(payload.hex())
                             if SAFE:
-                                #Wait for good ACK (0x517). A bad one is abcd24000e69 (0x518)
+                                #Wait for good ACK (0x518). A bad one is abcd24000e69 (0x51A)
                                 while 'abcd0c000c69' not in reply.hex():
                                     reply = radio.serial.read(48)
                                     if radio.debug: print('<raw<',reply.hex())
