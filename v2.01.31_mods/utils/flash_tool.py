@@ -15,8 +15,7 @@ if len(sys.argv) < 3:
 if len(sys.argv) > 3:
     arg_block = int(sys.argv[3],0) ; SAFE = True
     ##TODO----------
-    print('Partial flashing is not working for now: Correcting arguments to full flash.')
-    arg_block = False ; SAFE = False
+    print('\nNOTE: For many units, partial flashing is not working for now. Bootloader mod is needed.')
     ##----------TODO
 else: arg_block = False ; SAFE = False		#Change 'SAFE' here to True, to wait for bootloader ack after each successful block write
 
@@ -33,7 +32,7 @@ with libuvk5.uvk5(arg_port) as radio:
             radio.get_fw_version()
             reply = radio.rom_flash_set('*.00.06')
             if reply["ret"].hex() == '1805':
-                print('HELO', reply["pfm"].decode(),reply["boot"].decode())
+                print('\nHELO', reply["pfm"].decode(),reply["boot"].decode())
                 with open(arg_file,'rb') as f:
                     radio.debug = False
                     fw=f.read()
@@ -62,7 +61,8 @@ with libuvk5.uvk5(arg_port) as radio:
                             ## payload: (0x1905 + 0x0C01) + {0x8A8D9F1D + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + [256 data bytes]}
                             payload = b'\x8A\x8D\x9F\x1D' + struct.pack('>HH',i,end) + int.to_bytes(wlen,2,'big') + b'\x00\x00' + bin256
                             reply = radio.block_flash(payload)
-                            print(payload.hex())
+                            if i == offset: sleep(1)		#lets take time to erase flash ROM blocks
+                            if radio.debug: print(payload.hex())
                             if SAFE:
                                 #Wait for good ACK (0x518). A bad one is abcd24000e69 (0x51A)
                                 while 'abcd0c000c69' not in reply.hex():
@@ -70,7 +70,7 @@ with libuvk5.uvk5(arg_port) as radio:
                                     if radio.debug: print('<raw<',reply.hex())
 
                                 print(1+int(i/256), 'OK')
-
-                print('\nDone! Your transceiver will self reboot now...')
+                            else: print(1+int(i/256), 'sent')
+                        print('\nDone! Your transceiver will self reboot now...')
 
     else: print('ERROR: File not found');sys.exit(1)
