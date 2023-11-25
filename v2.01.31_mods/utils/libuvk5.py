@@ -56,9 +56,9 @@ class uvk5:
 
         ##Genuine commands
         #Bootloader only (ROM flash mode)
-        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0517/8 //Allows sending a 400 bytes payload to RAM and exec it. Bricked my device while testing it: Dangerous!
+        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0517/8 //Allows sending a 104 bytes payload to unknown memory offset without any check. Bricked my device while testing it: Dangerous!
         self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x051A   //ROM block WRITE. Dangerous! [needs platform check]
-        self.CMD_FLASH_ON      = b'\x30\x05' #0x0530 -> 0x518:ok //Platform check ('02' or '*') then enter flash ROM write mode
+        self.CMD_FLASH_ON      = b'\x30\x05' #0x0530 -> 0x518:ok //Platform check ('02' or '*') then enter flash ROM write mode [needs handshake]
 
         #Normal boot
         self.CMD_CONNECT       = b'\x14\x05' #0x0514 -> 0x0515   //SendVersion() handshake
@@ -143,9 +143,9 @@ class uvk5:
         cmd = self.build_uart_command(self.CMD_FLASH_ON, cmd + self.timeStamp)
         self.uart_send_msg(cmd)
         raw = self.serial.read(48)
-        print('<raw<',raw.hex())
+        if self.debug: print('<raw<',msg_dec.hex())
         reply = raw[4:6] + payload_xor(raw[8:-4]) + raw[-2:]
-        print('<dec<',reply.hex())
+        if self.debug: print('<dec<',msg_dec.hex())
         return {'ret': reply[2:4], 'pfm': reply[11:16], 'boot': reply[22:29]}
 
     def reboot(self):
