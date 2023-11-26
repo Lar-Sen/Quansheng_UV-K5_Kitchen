@@ -95,10 +95,14 @@ class uvk5:
         if self.debug: print('>raw>',msg_raw.hex())
         return self.serial.write(msg_raw)
 
-    def uart_receive_msg(self,len):
-        msg_raw = self.serial.read(len)
+    def uart_receive_msg(self,nbytes):
+        msg_raw = self.serial.read(nbytes)
         if self.debug: print('<raw<',msg_raw.hex())
-        msg_dec = msg_raw[:4] + payload_xor(msg_raw[4:-2]) + msg_raw[-2:]
+        i = 0    #Just in case of empty buffer
+        for i in range(0,len(msg_raw)):
+            if msg_raw[i:i+2] == b'\xAB\xCD': break
+
+        msg_dec = msg_raw[i:i+4] + payload_xor(msg_raw[i+4:-2]) + msg_raw[-2:]
         if self.debug: print('<dec<',msg_dec.hex())
         return msg_dec
 
@@ -134,19 +138,17 @@ class uvk5:
             raise Exception('Payload have to be multiples of 8 bytes')
 
     def block_flash(self,payload):
-        cmd=self.build_uart_command(self.CMD_ROMB_PUT, payload)
+        cmd=self.build_uart_command(self.CMD_ROMB_PUT, self.timeStamp + payload)
         self.uart_send_msg(cmd)
-        return b'\x01'
+        reply = self.uart_receive_msg(44)
+        return reply
 
     def rom_flash_set(self,req_ver):
-        cmd = bytes(req_ver,'ascii') + b'\x00'*(16-len(req_ver))
+        cmd = bytes(req_ver,'ascii') + bytes(16-len(req_ver))
         cmd = self.build_uart_command(self.CMD_FLASH_ON, cmd + self.timeStamp)
         self.uart_send_msg(cmd)
-        raw = self.serial.read(48)
-        if self.debug: print('<raw<',msg_dec.hex())
-        reply = raw[4:6] + payload_xor(raw[8:-4]) + raw[-2:]
-        if self.debug: print('<dec<',msg_dec.hex())
-        return {'ret': reply[2:4], 'pfm': reply[11:16], 'boot': reply[22:29]}
+        reply = self.uart_receive_msg(48)
+        return {'ret': reply[4:6], 'pfm': reply[13:18], 'boot': reply[24:31]}
 
     def reboot(self):
         cmd = self.build_uart_command(self.CMD_RESET)

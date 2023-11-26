@@ -4,7 +4,7 @@
 #Courtesy of LarSeN
 import libuvk5
 import sys,os,struct
-from time import sleep
+from time import sleep,time
 
 # Handle arguments
 if len(sys.argv) < 3:
@@ -58,18 +58,19 @@ with libuvk5.uvk5(arg_port) as radio:
                                 bin256 = fw[i:delta] + b'\xFF'*(256-len(fw[i:delta]))
                             else: bin256 = fw[i:delta] ; wlen = 256
 
-                            ## payload: (0x1905 + 0x0C01) + {0x8A8D9F1D + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + [256 data bytes]}
-                            payload = b'\x8A\x8D\x9F\x1D' + struct.pack('>HH',i,end) + int.to_bytes(wlen,2,'big') + b'\x00\x00' + bin256
+                            ## datagram: (0x1905 + 0x0C01) + {timeStamp(little) + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + [256 data bytes]} + Crc
+                            payload = struct.pack('>HH',i,end) + int.to_bytes(wlen,2,'big') + b'\x00\x00' + bin256
                             reply = radio.block_flash(payload)
-                            if i == offset: sleep(1)		#lets take time to erase flash ROM blocks
-                            if radio.debug: print(payload.hex())
+                            if i == offset: sleep(2)		#lets take time to erase flash ROM blocks
+                            #print(payload.hex())
                             if SAFE:
-                                #Wait for good ACK (0x518). A bad one is abcd24000e69 (0x51A)
-                                while 'abcd0c000c69' not in reply.hex():
-                                    reply = radio.serial.read(48)
-                                    if radio.debug: print('<raw<',reply.hex())
+                                #Wait for good ACK (0x51A). BL keeps spitting (0x518) if error.
+                                wd = int(time())
+                                while reply[4:6] != b'\x1A\x05':
+                                    reply = radio.uart_receive_msg(44)
+                                    if int(time()) - wd == 10: print('ERROR: Timeout while waiting for ACK'); sys.exit(1)
 
-                                print(1+int(i/256), 'OK')
+                                print(1+int.from_bytes(reply[12:-6],'little'), 'OK')
                             else: print(1+int(i/256), 'sent')
                         print('\nDone! Your transceiver will self reboot now...')
 
