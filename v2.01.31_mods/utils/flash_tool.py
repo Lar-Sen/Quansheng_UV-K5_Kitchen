@@ -30,11 +30,11 @@ with libuvk5.uvk5(arg_port) as radio:
     if os.path.exists(arg_file):
         if radio.connect():
             radio.get_fw_version()
-            reply = radio.rom_flash_set('*.00.06')
+            reply = radio.rom_flash_set('*.01.31')
             if reply["ret"].hex() == '1805':
                 print('\nHELO', reply["pfm"].decode(),reply["boot"].decode())
                 with open(arg_file,'rb') as f:
-                    radio.debug = False
+                    radio.debug = True
                     fw=f.read()
                     if len(fw) <= 0xF000: end = len(fw)
                     else: print('ERROR: firmware provided exceeds maximum size!')
@@ -58,9 +58,7 @@ with libuvk5.uvk5(arg_port) as radio:
                                 bin256 = fw[i:delta] + b'\xFF'*(256-len(fw[i:delta]))
                             else: bin256 = fw[i:delta] ; wlen = 256
 
-                            ## datagram: (0x1905 + 0x0C01) + {timeStamp(little) + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + [256 data bytes]} + Crc
-                            payload = struct.pack('>HH',i,end) + int.to_bytes(wlen,2,'big') + b'\x00\x00' + bin256
-                            reply = radio.block_flash(payload)
+                            reply = radio.block_flash(i,wlen,end,bin256)
                             if i == offset: sleep(2)		#lets take time to erase flash ROM blocks
                             #print(payload.hex())
                             if SAFE:
@@ -70,7 +68,8 @@ with libuvk5.uvk5(arg_port) as radio:
                                     reply = radio.uart_receive_msg(44)
                                     if int(time()) - wd == 10: print('ERROR: Timeout while waiting for ACK'); sys.exit(1)
 
-                                print(1+int.from_bytes(reply[12:-6],'little'), 'OK')
+                                if int.from_bytes(reply[14:15],'little') != 1: print(1+int.from_bytes(reply[12:-6],'little'), 'OK')
+                                else: print('ERROR: Received bad ACK')
                             else: print(1+int(i/256), 'sent')
                         print('\nDone! Your transceiver will self reboot now...')
 

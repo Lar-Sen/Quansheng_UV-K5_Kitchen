@@ -56,8 +56,8 @@ class uvk5:
 
         ##Genuine commands
         #Bootloader only (ROM flash mode)
-        self.CMD_0516          = b'\x16\x05' #0x0516 -> 0x0518/7 //Allows sending a 104 bytes payload to unknown memory offset without any check. Bricked my device while testing it: Dangerous!
-        self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x0518/A //ROM block WRITE. Dangerous! [needs platform check]
+        self.CMD_NVR_PUT       = b'\x16\x05' #0x0516 -> 0x0518/7 //NVRAM block WRITE. Dangerous for OFW! Max payload size is 104 bytes
+        self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x0518/A //ROM block WRITE. Caution! [needs platform check]
         self.CMD_FLASH_ON      = b'\x30\x05' #0x0530 -> 0x518:ok //Platform check ('02' or '*') then enter flash ROM write mode [needs handshake]
 
         #Normal boot
@@ -97,11 +97,10 @@ class uvk5:
 
     def uart_receive_msg(self,nbytes):
         msg_raw = self.serial.read(nbytes)
+        if msg_raw == b'': return None   #Just in case of empty buffer
         if self.debug: print('<raw<',msg_raw.hex())
-        i = 0    #Just in case of empty buffer
         for i in range(0,len(msg_raw)):
             if msg_raw[i:i+2] == b'\xAB\xCD': break
-
         msg_dec = msg_raw[i:i+4] + payload_xor(msg_raw[i+4:-2]) + msg_raw[-2:]
         if self.debug: print('<dec<',msg_dec.hex())
         return msg_dec
@@ -137,8 +136,17 @@ class uvk5:
         else:
             raise Exception('Payload have to be multiples of 8 bytes')
 
-    def block_flash(self,payload):
-        cmd=self.build_uart_command(self.CMD_ROMB_PUT, self.timeStamp + payload)
+    def nvram_flash(self,block):
+        ## datagram: (0x1905 + 0x0C01) + Length + <block 104 bytes fixed>
+        ## Offset forced to 0x200 (as sector 1 of 4. sector 0 is OTP only)
+        cmd=self.build_uart_command(self.CMD_NVR_PUT, block)
+        self.uart_send_msg(cmd)
+        reply = self.uart_receive_msg(44)
+        return reply
+
+    def block_flash(self,address,bksize,rgnend,block):
+        ## datagram: (0x1905 + 0x0C01) + Length + timeStamp(little) + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + <block 256 bytes max> + Crc
+        cmd=self.build_uart_command(self.CMD_ROMB_PUT, self.timeStamp + struct.pack('>HH',address,rgnend) + int.to_bytes(bksize,2,'big') + b'\x00\x00' + block)
         self.uart_send_msg(cmd)
         reply = self.uart_receive_msg(44)
         return reply
@@ -185,11 +193,12 @@ class uvk5:
         return {'volt': a, 'amp': b}
 
 #Memory reader MOD
-    def read_mem(self,address,length):
-        cmd = self.build_uart_command(self.CMD_MEMB_GET, struct.pack('<HIII', 1, address, length, 0))
+    def read_mem(self,mode,address,length):
+        cmd = self.build_uart_command(self.CMD_MEMB_GET, struct.pack('<HHII', mode, 0, address, length))
         self.uart_send_msg(cmd)
         reply = self.serial.read(length)
-        return reply
+        if reply == b'': return None
+        else: return reply
 
 #Read/Write BK4819 register MOD
     def get_reg(self, num):
@@ -220,11 +229,4 @@ class uvk5:
         cmd = self.build_uart_command(self.CMD_051F, test)
         #self.uart_send_msg(cmd)
         #reply = self.uart_receive_msg(128)
-        return False
-
-    def cmd0516(self,code):                                ##NOT IMPLEMENTED
-        cmd=self.build_uart_command(self.CMD_0516, code)
-        #self.uart_send_msg(cmd)
-        #reply = self.uart_receive_msg(1024)
-        #return reply
         return False
