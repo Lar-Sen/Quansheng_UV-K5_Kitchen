@@ -14,12 +14,6 @@ from Crypto.Cipher import AES
 #If only need is remove password, please set 'customKey = masterKey' and run 'cmd052D_authenticate.py <COMx> unlock'
 masterKey = b'\x4A\xA5\xCC\x60\x03\x12\xCC\x5F\xFF\xD2\xDA\xBB\x6B\xBA\x7F\x92'
 
-#my UUID_le (1)
-#masterKey = b'\x0B\x02\x02\x01\x34\x46\x53\x0D\x10\xFF\x59\x52\x00\xA5\x00\x3F'
-
-#my UUID_le (2)
-#masterKey = b'\x0B\x02\x02\x01\x34\x46\x53\x0C\x04\xFF\x59\x52\x00\x6B\x00\x59'
-
 ##You can set your own key if you want, by running 'cmd052D_authenticate.py <COMx> protect <your_key>' and editing 'customKey' below
 #customKey = b'UVK5isFun'
 customKey = masterKey
