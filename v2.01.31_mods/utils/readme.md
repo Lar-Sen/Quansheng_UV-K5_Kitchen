@@ -11,6 +11,53 @@ Do not confuse with `serial` module which is incompatible with this lib.
 <hr>
 
 
+### `flashtool.py`
+Arguments:
+```
+flashtool.py  <COMx> <unscrambled_rom.bin> [block number] [blocks to write]
+```
+Description:<br>
+This is a (cleartext) firmware flasher.
+
+Its advantages over stock app is that it can flash specific blocks without having to reflash the entire ROM. Time and flash component lifespan savings.
+
+Sadly, Quansheng decided to only allow full flash update by erasing all 120 ROM sectors as soon as the operation begins.
+
+A bootloader mods allow for progressive erasing, thus permitting partial flashing. Look here for more information:
+
+https://github.com/Lar-Sen/Quansheng_UV-K5_Kitchen/tree/main/Bootloader_mods
+
+Anyway flashtool.py will work like stock without bootloader mod.
+
+You need to provide an _unscrambled_ firmware file.
+
+For example, if you wanna flash a modded firmware file in your mods temp directory:
+```
+> flashtool.py COM4 fw.dec.bin
+
+HELO UV-K5 2.03.02
+
+About to FLASH 59392 bytes to user ROM!
+Sure?
+ Confirm [Y/n]
+```
+
+The update progress will take place after confirmation.
+
+Another example (if you previously applied mod over your bootloader): Let's update what you modded in your firmware file at offset 0xD358.
+
+To get the right block to update, let's divide 0xD358 / 256 = 0xD3 , decimal 211. So:
+
+```
+> flashtool.py COM4 fw.dec.bin 211 1
+```
+will automatically update only 256 bytes starting at the lower rounded sector (offset 0xD200 in that case) and rewrite next block, as erase size is 512 bytes.
+
+Note: Updating firmware with flashtool.py is slightly slower that the stock application, due to additional UART traffic checks and progressive erasing of blocks (in case you modded the bootloader).
+<hr>
+
+
+
 
 ### `cmd052D_authenticate.py`
 Arguments:
