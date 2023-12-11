@@ -1,9 +1,9 @@
-from PIL import Image
-import PIL.ImageOps
-import sys
+#!/usr/bin/env python3
 
-if len(sys.argv)!=3: print('Usage: Alphabet_encode.py <input_bitmap.bmp> <output_python_patch.py>') ; exit(1)
+from PIL import Image,ImageOps
+from sys import argv,exit
 
+if len(argv)!=3: print('Usage: Alphabet_encode.py <input_bitmap.bmp> <output_python_patch.py>') ; exit(1)
 
 def pil_8b1b(in_bytes):
     if len(in_bytes)!=8:
@@ -18,7 +18,7 @@ def pil_8b1b(in_bytes):
         (0b10000000 * bool(in_bytes[0]))
     return bytes([b,])
 
-im = Image.open(sys.argv[1])
+im = Image.open(argv[1])
 if im.size!=(760,16):
     print('Image size different than 760x16px. Exiting')
     exit(1)
@@ -26,7 +26,7 @@ if im.size!=(760,16):
 # do some transformations on image
 im = im.convert('1')
 im = im.rotate(-90, expand=True)
-im = PIL.ImageOps.invert(im)
+im = ImageOps.invert(im)
 im = list(im.getdata())
 
 # change PIL format to raw bytes format
@@ -43,10 +43,8 @@ for i in range(0,95): # 95 characters of 8px width
     for j in range(0,8):
         raw_deint += bytes( [ raw[(i*16)+j*2],] )
 
-
 big_digits_patch = ''.join([f'\\x{i:02X}' for i in raw_deint])
 print("alphabet=b'"+big_digits_patch+"'")
 
-
-with open(sys.argv[2],'w') as f, open('Alphabet_encode.template','r') as template:
+with open(argv[2],'w') as f, open('Alphabet_encode.template','r') as template:
     f.write(template.read().replace('{_ARRAY_}',big_digits_patch))

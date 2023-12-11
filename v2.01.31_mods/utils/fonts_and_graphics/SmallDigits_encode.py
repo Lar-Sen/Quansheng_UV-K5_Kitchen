@@ -1,6 +1,7 @@
-from PIL import Image
-import PIL.ImageOps
-import sys
+#!/usr/bin/env python3
+
+from sys import exit
+from PIL import Image,ImageOps
 
 if len(sys.argv)!=3: print('Usage: SmallDigits_encode.py <input_image.png> <output_python_patch.py>') ; exit(1)
 
@@ -26,7 +27,7 @@ if im.size!=(84,8):
 # do some transformations on image
 im = im.convert('1')
 im = im.rotate(-90, expand=True)
-im = PIL.ImageOps.invert(im)
+im = ImageOps.invert(im)
 im = list(im.getdata())
 
 # change PIL format to raw bytes format
@@ -34,7 +35,6 @@ raw = b''
 for i in range(len(im)//8):
     offset=i*8
     raw += pil_8b1b(im[offset:offset+8])
-
 
 symbols_patch = ''.join([f'\\x{i:02X}' for i in raw])
 print("symbols=b'"+symbols_patch+"'")
