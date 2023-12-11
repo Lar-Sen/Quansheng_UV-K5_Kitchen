@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 import libuvk5
-import sys,os
+from sys import argv,exit
+from os import path
 
 # Handle arguments
-if len(sys.argv)!=4: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> backup | restore <dest_file.bin>') ; sys.exit(1)
+if len(argv)!=4: print(f'Usage: {path.basename(argv[0])} <COMx> backup | restore <dest_file.bin>') ; exit(1)
 
-arg_port=sys.argv[1]
-arg_file=sys.argv[3]
+arg_port=argv[1]
+arg_file=argv[3]
 
 with libuvk5.uvk5(arg_port) as radio:
     if radio.connect():
-        radio.get_fw_version()
-        if sys.argv[2] == 'backup' and not os.path.exists(arg_file):
+        if radio.get_fw_version()["prot"] == 1:
+            print('\nWARN: Config is password protected. Make sure you logged in first.')
+        if argv[2] == 'backup' and not path.exists(arg_file):
             with open(arg_file,'wb') as f:
                 for i in range(0,64):
                     print(f'Reading {i*0x80:04X}...' )
@@ -19,7 +21,7 @@ with libuvk5.uvk5(arg_port) as radio:
                     f.write(chunk)
             print('Backed up',(1+i)/8,'Kbytes to',arg_file)
 
-        if sys.argv[2] == 'restore':
+        if argv[2] == 'restore':
             #Read file and bulk write
             with open(arg_file,'rb') as f:
                 eeprom=f.read()

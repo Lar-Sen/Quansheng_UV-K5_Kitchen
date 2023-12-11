@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import serial
-import os,time,struct
+import time,struct
+from os import getenv
 from itertools import cycle
 
 #CRC computation
@@ -47,14 +48,14 @@ class uvk5:
         pass
 
     def __init__(self,portName='COM1'):
-        self.debug = False if os.getenv('DEBUG') is None else True
+        self.debug = False if getenv('DEBUG') is None else True
         self.serial = serial.Serial()
         self.serial.baudrate = 38400
-        self.serial.timeout=1
-        self.serial.port=portName
-        self.timeStamp = int(time.time()).to_bytes(4,'little')
+        self.serial.timeout = 1
+        self.serial.port = portName
+        self.currTime = int(time.time()).to_bytes(4,'little')
 
-        ##Genuine commands
+        ##Genuine tags for commands
         #Bootloader only (ROM flash mode)
         self.CMD_NVR_PUT       = b'\x16\x05' #0x0516 -> 0x0518/7 //NVRAM block WRITE. Dangerous for OFW! Max payload size is 104 bytes
         self.CMD_ROMB_PUT      = b'\x19\x05' #0x0519 -> 0x0518/A //ROM block WRITE. Caution! [needs platform check]
@@ -89,129 +90,112 @@ class uvk5:
         self.serial.open()
         return self.serial.is_open
 
-    def uart_send_msg(self,msg_dec):
-        if self.debug: print('>dec>',msg_dec.hex())
-        msg_raw = msg_dec[:4] + payload_xor(msg_dec[4:-2]) + msg_dec[-2:]
-        if self.debug: print('>raw>',msg_raw.hex())
-        return self.serial.write(msg_raw)
+    def serial_get(self,buffSize=128):
+        ciphertext = self.serial.read(buffSize)
+        if ciphertext == b'': return None   #Just in case of empty buffer
+        if self.debug: print('<raw<',ciphertext.hex())
+        for i in range(0,len(ciphertext)):
+            if ciphertext[i:i+2] == b'\xAB\xCD': break
+        datagram = ciphertext[i:i+4] + payload_xor(ciphertext[i+4:-2]) + ciphertext[-2:]
+        if self.debug: print('<dec<',datagram.hex())
+        return datagram
 
-    def uart_receive_msg(self,nbytes):
-        msg_raw = self.serial.read(nbytes)
-        if msg_raw == b'': return None   #Just in case of empty buffer
-        if self.debug: print('<raw<',msg_raw.hex())
-        for i in range(0,len(msg_raw)):
-            if msg_raw[i:i+2] == b'\xAB\xCD': break
-        msg_dec = msg_raw[i:i+4] + payload_xor(msg_raw[i+4:-2]) + msg_raw[-2:]
-        if self.debug: print('<dec<',msg_dec.hex())
-        return msg_dec
+    def serial_put(self,tag,value=b''):
+        tlv = tag + struct.pack('<H',len(value))+ value
+        datagram = (b'\xAB\xCD' + struct.pack('<H',len(tlv)) + tlv + CrcXmodem_le(tlv) + b'\xDC\xBA')
+        if self.debug: print('>dec>',datagram.hex())
+        ciphertext = datagram[:4] + payload_xor(datagram[4:-2]) + datagram[-2:]
+        if self.debug: print('>raw>',ciphertext.hex())
+        return self.serial.write(ciphertext)
 
-    def build_uart_command(self, command_type, command_body=b''):
-        cmd = command_type + struct.pack('<H',len(command_body))+ command_body
-        cmd_len = struct.pack('<H',len(cmd))
-        cmd_crc = CrcXmodem_le(cmd)
-        cmd =  b'\xAB\xCD' + cmd_len + cmd + cmd_crc + b'\xDC\xBA'
-        return cmd
-
-    def get_fw_version(self):
-        cmd=self.build_uart_command(self.CMD_CONNECT, self.timeStamp)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(128)
+    def get_fw_version(self,timeStamp=False):
+        if not timeStamp: timeStamp = self.currTime
+        self.serial_put(self.CMD_CONNECT, timeStamp)
+        reply = self.serial_get()
+        if reply is None: return False
         version = reply[8:24]
         upwd,pop = struct.unpack('<BB',reply[24:26])
         chlg = struct.unpack('<IIII',reply[28:44])
         return {'ver': version, 'prot': upwd, 'pin': pop, 'nonce': chlg}
 
-    def get_cfg_mem(self,address,length):
-        cmd=self.build_uart_command(self.CMD_EEPB_GET, struct.pack('<HH',address,length) + self.timeStamp)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(length+16)
+    def get_cfg_mem(self,address,size=16):
+        self.serial_put(self.CMD_EEPB_GET, struct.pack('<HH',0x1FFF & address,size) + self.currTime)
+        reply = self.serial_get(size+16)
         return reply[12:-4]
         
-    def set_cfg_mem(self,address,payload):
-        if len(payload)%8==0:
-            cmd = self.build_uart_command(self.CMD_EEPB_PUT, struct.pack('<HH',address, len(payload)) + self.timeStamp + payload)
-            self.uart_send_msg(cmd)
-            reply = self.uart_receive_msg(14)
+    def set_cfg_mem(self,address,data):
+        if not len(data)%8 and address+len(data) <= 8192:
+            self.serial_put(self.CMD_EEPB_PUT, struct.pack('<HH',address, len(data)) + self.currTime + data)
+            reply = self.serial_get(14)
             return reply[8:10]
-        else:
-            raise Exception('Payload have to be multiples of 8 bytes')
+        else: return False
 
     def nvram_flash(self,block):
         ## datagram: (0x1905 + 0x0C01) + Length + <block 104 bytes fixed>
         ## Offset forced to 0x200 (as sector 1 of 4. sector 0 is OTP only)
-        cmd=self.build_uart_command(self.CMD_NVR_PUT, block)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(44)
-        return reply
+        self.serial_put(self.CMD_NVR_PUT, block)
+        return self.serial_get(44)
 
     def block_flash(self,address,bksize,rgnend,block):
-        ## datagram: (0x1905 + 0x0C01) + Length + timeStamp(little) + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + <block 256 bytes max> + Crc
-        cmd=self.build_uart_command(self.CMD_ROMB_PUT, self.timeStamp + struct.pack('>HH',address,rgnend) + int.to_bytes(bksize,2,'big') + b'\x00\x00' + block)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(44)
-        return reply
+        ## datagram: (0x1905 + 0x0C01) + Length + timestamp(little) + offset(BIG) + regionEnd(BIG) + length(BIG) + 0x0000 + <block 256 bytes max> + Crc
+        self.serial_put(self.CMD_ROMB_PUT, self.currTime + struct.pack('>HH',address,rgnend) + int.to_bytes(bksize,2,'big') + b'\x00\x00' + block)
+        return self.serial_get(44)
 
-    def rom_flash_set(self,req_ver):
-        cmd = bytes(req_ver,'ascii') + bytes(16-len(req_ver))
-        cmd = self.build_uart_command(self.CMD_FLASH_ON, cmd + self.timeStamp)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(48)
-        return {'ret': reply[4:6], 'pfm': reply[13:18], 'boot': reply[24:31]}
+    def rom_flash_set(self,req_ver='*'):
+        self.serial_put(self.CMD_FLASH_ON, bytes(req_ver,'ascii') + bytes(16-len(req_ver)) + self.currTime)
+        reply = self.serial_get(48)
+        return False if reply is None else {'ret': reply[4:6], 'pfm': reply[13:18], 'boot': reply[24:31]}
 
     def reboot(self):
-        cmd = self.build_uart_command(self.CMD_RESET)
-        self.uart_send_msg(cmd)
+        self.serial_put(self.CMD_RESET)
         return True
 
-    def get_fw_ver_mute(self):
-        cmd=self.build_uart_command(self.CMD_CONN_TEST, self.timeStamp)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(128)
+    def get_fw_ver_mute(self,timeStamp=False):
+        if not timeStamp: timeStamp = self.currTime
+        self.serial_put(CMD_CONN_TEST, timeStamp)
+        reply = self.serial_get()
+        if reply is None: return False
         version = reply[8:24]
         upwd,pop = struct.unpack('<BB',reply[24:26])
         chlg = struct.unpack('<IIII',reply[28:44])
         return {'ver': version, 'prot': upwd, 'pin': pop, 'nonce': chlg}
 
     def try_login(self,resp):
-        cmd = self.build_uart_command(self.CMD_MNG_LOGIN, resp)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(16)
-        return reply[8:9]
+        self.serial_put(self.CMD_MNG_LOGIN, resp)
+        reply = self.serial_get(16)
+        return False if reply is None else int.from_bytes(reply[8:9],"little")
         
     def get_rssi(self):
-        cmd = self.build_uart_command(self.CMD_RSSI_GET)
-        reply = self.uart_receive_msg(16)
+        self.serial_put(self.CMD_RSSI_GET)
+        reply = self.serial_get(16)
         rssi,noise,glitch = struct.unpack('<HBB',reply[8:-4])
         rssi = rssi / 2 - 160
         return {'rssi':rssi, 'noise':noise, 'glitch':glitch, 'raw':reply[8:-4].hex()}
 
     def get_adc(self):
-        cmd = self.build_uart_command(self.CMD_ADC_GET)
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(16)
+        self.serial_put(self.CMD_ADC_GET)
+        reply = self.serial_get(16)
         a,b = struct.unpack('<HH',reply[8:-4])
         return {'volt': a, 'amp': b}
 
 #Memory reader MOD
     def read_mem(self,mode,address,length):
-        cmd = self.build_uart_command(self.CMD_MEMB_GET, struct.pack('<HHII', mode, 0, address, length))
-        self.uart_send_msg(cmd)
+        self.serial_put(self.CMD_MEMB_GET, struct.pack('<HHII', mode, 0, address, length))
         reply = self.serial.read(length)
-        if reply == b'': return None
-        else: return reply
+        return False if reply is b'' else reply
 
 #Read/Write BK4819 register MOD
     def get_reg(self, num):
-        cmd = self.build_uart_command(self.CMD_BKREG_GET, struct.pack('<H', num))
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(16)
+        self.serial_put(self.CMD_BKREG_GET, struct.pack('<H', num))
+        reply = self.serial_get(16)
+        if reply == None: raise Exception('ERR: No response from transceiver!')
         dat,a,b = struct.unpack('<HBB',reply[8:-4])
         return {'reg': a, 'val': dat, 'sta': b}
 
     def put_reg(self, num, val):
-        cmd = self.build_uart_command(self.CMD_BKREG_PUT, struct.pack('<HH', num, val))
-        self.uart_send_msg(cmd)
-        reply = self.uart_receive_msg(16)
+        self.serial_put(self.CMD_BKREG_PUT, struct.pack('<HH', num, val))
+        reply = self.serial_get(16)
+        if reply == None: raise Exception('ERR: No response from transceiver!')
         dat,a,b = struct.unpack('<HBB',reply[8:-4])
         return {'reg': a, 'val': dat, 'sta': b}
 
@@ -224,9 +208,8 @@ class uvk5:
                 struct.pack('<H',0x00) +           \
                 struct.pack('<H',0x7F) +           \
                 struct.pack('<H',0xFF) +           \
-                struct.pack('<H',1)                   
-                
-        cmd = self.build_uart_command(self.CMD_051F, test)
-        #self.uart_send_msg(cmd)
-        #reply = self.uart_receive_msg(128)
+                struct.pack('<H',1) 
+
+        #self.serial_put(self.CMD_051F, test)
+        #return self.serial_get(128)
         return False

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import libuvk5
-import sys,os
+from sys import argv,exit
+from os import path
 
 # Handle arguments
-if len(sys.argv) not in [2,3]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <hex_payload>') ; sys.exit(1)
+if len(argv) not in [2,3]: print(f'Usage: {path.basename(argv[0])} <COMx> <address> <hex_payload>') ; exit(1)
 
-arg_port = sys.argv[1]
+arg_port = argv[1]
 
 # Defaults taken from my radio
 # To get from RSSI to the byte value, use the following formula:
@@ -26,7 +27,8 @@ vhf_squelch_open_glitch = bytearray([0x64,0x1e,0x14,0x0f,0x0d,0x0c,0x0b,0x0a,0x0
 # Connect and write
 with libuvk5.uvk5(arg_port) as radio:
     if radio.connect():
-        _=radio.get_fw_version()
+        if radio.get_fw_version()["prot"] == 1:
+            print('\nWARN: Config is password protected. Make sure you logged in first.')
         radio.set_cfg_mem(0x1e00,uhf_squelch_open_rssi).hex()
         radio.set_cfg_mem(0x1e10,uhf_squelch_close_rssi).hex()
         radio.set_cfg_mem(0x1e20,uhf_squelch_open_noise).hex()

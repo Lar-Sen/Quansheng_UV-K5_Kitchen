@@ -16,7 +16,7 @@ masterKey = b'\x4A\xA5\xCC\x60\x03\x12\xCC\x5F\xFF\xD2\xDA\xBB\x6B\xBA\x7F\x92'
 with libuvk5.uvk5(arg_port) as radio:
     if radio.connect():
         radio.debug=True
-        radio.uart_send_msg(radio.build_uart_command(radio.CMD_EEPB_GET, struct.pack('<HH',0x0F30,16) + timeStamp))
+        radio.serial_put(radio.CMD_EEPB_GET, struct.pack('<HH',0x0F30,16) + timeStamp))
         reply = radio.serial.read(32)
         print(reply.hex())
         v=payload_xor(reply[4:-2])

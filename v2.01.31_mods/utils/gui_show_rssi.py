@@ -2,9 +2,10 @@
 import tkinter as tk
 from tkinter import ttk
 import libuvk5
-import sys,os
+from sys import argv,exit
+from os import path
 
-if len(sys.argv)!=3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <pooling>') ; sys.exit(1)
+if len(argv)!=3: print(f'Usage: {path.basename(argv[0])} <COMx> <pooling>') ; exit(1)
 
 class App():
     def __init__(self):
@@ -52,11 +53,10 @@ class App():
 
 
         #---- CONNECT WITH RADIO -----
-        self.radio = libuvk5.uvk5(sys.argv[1])
-        self.radio.debug=False
+        self.radio = libuvk5.uvk5(argv[1])
         if self.radio.connect():
-            self.root.title('Quansheng UV-K5 RSSI Window - '+sys.argv[1])
-            self.refresh_rate = int(sys.argv[2]) #ms
+            self.root.title('Quansheng UV-K5 RSSI Window - '+argv[1])
+            self.refresh_rate = int(argv[2]) #ms
 
         self.update()
         self.root.mainloop()

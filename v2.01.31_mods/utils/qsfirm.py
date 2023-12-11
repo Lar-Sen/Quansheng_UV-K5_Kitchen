@@ -1,38 +1,39 @@
 #!/usr/bin/env python3
 
-import sys,os
 import libuvk5
+from sys import argv,exit
+from os import path
 from binascii import hexlify
 
 # Handle arguments
-nargs = len(sys.argv)
-if (nargs < 2): print('\nMissing parameters. Please specify at least <pack> or <unpack>.');sys.exit()
+nargs = len(argv)
+if (nargs < 2): print('\nMissing parameters. Please specify at least <pack> or <unpack>.');exit()
 
 #-------- main ------------------
-if sys.argv[1]=='unpack':
-    if nargs != 4: print('Parameter mismatch!');sys.exit(1)
-    encoded_firmware =  open(sys.argv[2],'rb').read()
+if argv[1]=='unpack':
+    if nargs != 4: print('Parameter mismatch!');exit(1)
+    encoded_firmware =  open(argv[2],'rb').read()
 
     #Check source file CRC
     if libuvk5.CrcXmodem_le(encoded_firmware[:-2]) == encoded_firmware[-2:]:
         print('CRC OK')
     else:
-        print('CRC MISMATCH! Packed firmware file required!');sys.exit(1)
+        print('CRC MISMATCH! Packed firmware file required!');exit(1)
     
     decoded_firmware = libuvk5.firmware_xor(encoded_firmware[:-2])
     
     #save decoded firmware to file
-    open(sys.argv[3],'wb').write(decoded_firmware[:0x2000]+decoded_firmware[0x2000+16:])
-    print(f'Saved decoded firmware to {sys.argv[3]}')
+    open(argv[3],'wb').write(decoded_firmware[:0x2000]+decoded_firmware[0x2000+16:])
+    print(f'Saved decoded firmware to {argv[3]}')
 
     #display downgrade limiting version level
     version = decoded_firmware[0x2000:0x2000+16]
     print('This firmware has version',version.decode('ascii'))
 
-elif sys.argv[1]=='pack':
-    if nargs != 5 or len(sys.argv[3]) > 10: print('Parameter mismatch or version number too long!');sys.exit(1)
-    decoded_firmware = open(sys.argv[2],'rb').read()
-    version_info = bytes(sys.argv[3], 'ascii')
+elif argv[1]=='pack':
+    if nargs != 5 or len(argv[3]) > 10: print('Parameter mismatch or version number too long!');exit(1)
+    decoded_firmware = open(argv[2],'rb').read()
+    version_info = bytes(argv[3], 'ascii')
 
     # visual indicator for firmware size and big warning if too big
     current_size = len(decoded_firmware)
@@ -59,8 +60,8 @@ elif sys.argv[1]=='pack':
     firmware_with_version = decoded_firmware[0:0x2000] + version_info + decoded_firmware[0x2000:]
     firmware_with_version_encoded = libuvk5.firmware_xor(firmware_with_version)
 
-    open(sys.argv[4], 'wb').write(firmware_with_version_encoded + libuvk5.CrcXmodem_le(firmware_with_version_encoded))
-    print(f'Saved encoded firmware to {sys.argv[4]}')
+    open(argv[4], 'wb').write(firmware_with_version_encoded + libuvk5.CrcXmodem_le(firmware_with_version_encoded))
+    print(f'Saved encoded firmware to {argv[4]}')
 
 else:
-    print('\nUsage: qsfirm.py unpack <encoded_firmware_in.bin> <decoded_firmware_out.bin>\n\tqsfirm.py pack <decoded_firmware_in.bin> <target_version as X.XX.XX> <encoded_firmware_out.bin>'); sys.exit(1)
+    print('\nUsage: qsfirm.py unpack <encoded_firmware_in.bin> <decoded_firmware_out.bin>\n\tqsfirm.py pack <decoded_firmware_in.bin> <target_version as X.XX.XX> <encoded_firmware_out.bin>'); exit(1)

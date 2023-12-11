@@ -5,6 +5,7 @@
 import sys,struct,argparse
 import serial
 import libuvk5
+from sys import exit
 
 pl = argparse.ArgumentParser(description='UV-K5 RAM/ROM Dumper via serial interface cable (CMD 05DB)', epilog='Memory dumper for UV-K5 transceiver.\nNeeds companion mod applied to original firmware.')
 pl.add_argument('interface', nargs=1, help='serial port to transceiver')
@@ -16,7 +17,7 @@ params = pl.parse_args()
 with libuvk5.uvk5(params.interface[0]) as radio:
     if radio.connect():
         reply=radio.read_mem(1,int(params.address[0],16),params.data_len[0])
-        if reply == b'CMD:Error!\x00': print('ERR: Invalid memory read.\nOnly user RAM and ROM regions allowed.') ; sys.exit(1)
+        if reply == b'CMD:Error!\x00': print('ERR: Invalid memory read.\nOnly user RAM and ROM regions allowed.') ; exit(1)
 
 if reply:
     if params.filename is not None: params.filename[0].write(reply)

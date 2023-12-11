@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import libuvk5
-import sys,os
+from sys import argv,exit
+from os import path
 
 # Handle arguments
-# if len(sys.argv) not in [4,5]: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <address> <len> [dest_file.bin]') ; sys.exit(1)
+# if len(argv) not in [4,5]: print(f'Usage: {path.basename(argv[0])} <COMx> <address> <len> [dest_file.bin]') ; exit(1)
 
-arg_port = sys.argv[1]
-if len(sys.argv)==5: 
-    arg_file=sys.argv[4] 
+arg_port = argv[1]
+if len(argv)==5: 
+    arg_file=argv[4] 
 else: 
     arg_file=None
 
@@ -21,14 +22,15 @@ else:
 # Connect and read
 with libuvk5.uvk5(arg_port) as radio:
     if radio.connect():
-        _=radio.get_fw_version() #mandatory before reading mem
+        if radio.get_fw_version()["prot"] == 1:
+            print('\nWARN: Config is password protected. Make sure you logged in first.')
         # print radio.get_cfg_mem(0x1e00,10).hex() but in comma separated hex digits
         # for i in range(12):
         #     print(str(0x1e00+i*0x10) + ": ", end='')
         #     temp = radio.get_cfg_mem(0x1e00+i*0x10,10).hex()
         #     temp = ','.join([f'0x{temp[i:i+2]}' for i in range(0,len(temp),2)])
         #     print(temp)
-        # sys.exit(0)
+        # exit(0)
         print("UHF Squelch Open RSSI Thresholds:")
         for i in range(10):
             print("SQL " + str(i) + ": " + str(int(radio.get_cfg_mem(0x1e00+i,1).hex(),16)/2-160))

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 import libuvk5
-import sys,os,struct
+import struct
+from sys import argv,exit
+from os import path
 
-if len(sys.argv)<3: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> <read | write  val0 val1 val2 val3 val4 val5 | calibrate>') ; sys.exit(1)
-arg_port = sys.argv[1]
-action   = sys.argv[2]
+if len(argv)<3: print(f'Usage: {path.basename(argv[0])} <COMx> <read | write  val0 val1 val2 val3 val4 val5 | calibrate>') ; exit(1)
+arg_port = argv[1]
+action   = argv[2]
 
 with libuvk5.uvk5(arg_port) as radio:
     radio.debug=False
     if radio.connect():
-        _=radio.get_fw_version() #mandatory before reading mem
+        if radio.get_fw_version()["prot"] == 1:
+            print('\nWARN: Config is password protected. Make sure you logged in first.')
         calib_raw = radio.get_cfg_mem(0x1F40,16)
         calib_data     = list(struct.unpack('<8H',calib_raw))
         calib_data_old = [i for i in calib_data]
@@ -28,13 +31,13 @@ with libuvk5.uvk5(arg_port) as radio:
             print('\nActual = {:.2f} V'.format(calculate_voltage(radio.get_adc()["volt"], calib_data[3])))
 
         if action=='write': 
-            if len(sys.argv)!=9: print(f'Usage: {os.path.basename(sys.argv[0])} <COMx> write val0 val1 val2 val3 val4 val5') ; sys.exit(1)
-            calib_data[0] = int(sys.argv[3],0)
-            calib_data[1] = int(sys.argv[4],0)
-            calib_data[2] = int(sys.argv[5],0)
-            calib_data[3] = int(sys.argv[6],0)
-            calib_data[4] = int(sys.argv[7],0)
-            calib_data[5] = int(sys.argv[8],0)
+            if len(argv)!=9: print(f'Usage: {path.basename(argv[0])} <COMx> write val0 val1 val2 val3 val4 val5') ; exit(1)
+            calib_data[0] = int(argv[3],0)
+            calib_data[1] = int(argv[4],0)
+            calib_data[2] = int(argv[5],0)
+            calib_data[3] = int(argv[6],0)
+            calib_data[4] = int(argv[7],0)
+            calib_data[5] = int(argv[8],0)
             calib_raw = struct.pack('<8H',*calib_data)
             radio.set_cfg_mem(0x1F40,calib_raw)
 
