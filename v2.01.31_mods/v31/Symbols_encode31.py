@@ -1,13 +1,15 @@
-import sys,os,struct
+#!/usr/bin/env python3
 
-if len(sys.argv)!=3: print('Usage: Symbols_encode.py <image.bmp> <output_python_patch.py>') ; sys.exit(1)
+from sys import argv,exit
+import struct
+
+if len(argv)!=3: print('Usage: Symbols_encode.py <image.bmp> <output_python_patch.py>') ; exit(1)
 
 def bit_not(n, numbits=8):
     return bytes([(1 << numbits) - 1 - n,])
 
 image = b''
-image = open(sys.argv[1],'rb').read()
-
+image = open(argv[1],'rb').read()
 im = image[0x3E:len(image)]
 
 if len(im)!=1768:
@@ -19,12 +21,10 @@ else:
 # change to 1bit encoding
 raw = b''
 for i in range(len(im)//4):
-    offset=i*4
-    raw += bit_not((im[offset:offset+1])[0],8)
+    raw += bit_not((im[4*i:1+4*i])[0],8)
 
 raw = bytes(reversed(raw))
 symbols_patch = ''.join([f'\\x{i:02X}' for i in raw])
-##print("symbols=b'"+symbols_patch+"'")
 
-with open(sys.argv[2],'w') as f, open('v31\Symbols_encode31.template','r') as template:
+with open(argv[2],'w') as f, open('v31\Symbols_encode31.template','r') as template:
     f.write(template.read().replace('{_ARRAY_}',symbols_patch))
