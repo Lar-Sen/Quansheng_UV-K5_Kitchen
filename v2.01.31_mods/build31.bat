@@ -14,6 +14,7 @@ REM c:\python\python.exe v31\mod_more_freq_steps_and_backlight_duration.py temp\
 :: start of mods
 c:\python\python.exe v31\mod-combo_ramreader_zvei.py temp\fw.dec.bin
 c:\python\python.exe v31\mod_uart_cmds.py temp\fw.dec.bin
+c:\python\python.exe v31\mod_auth-check_killer.py temp\fw.dec.bin
 c:\python\python.exe v31\mod_2to1_compressor.py temp\fw.dec.bin
 REM c:\python\python.exe v31\mod_battery_icon.py temp\fw.dec.bin
 c:\python\python.exe v31\mod_change_burst_tones.py temp\fw.dec.bin
