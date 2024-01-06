@@ -4,6 +4,6 @@
 @ECHO ******** Launching 1 shot unbricking process with OpenOCD (STLink v2)...
 @ECHO .
 @CD OpenOCD
-@openocd -f interface/stlink.cfg -f target/dp32g030.cfg -c "reset halt" -c "uv_flash_bl bootloader.bin" -c "uv_flash_fw k5_v2.01.27_fw" -c "shutdown"
+@openocd -f interface/stlink.cfg -f target/dp32g030.cfg -c "reset halt" -c "uv_flash_bl bootloader.bin" -c "uv_flash_fw k5_v2.01.27_fw.bin" -c "shutdown"
 @PAUSE
 
